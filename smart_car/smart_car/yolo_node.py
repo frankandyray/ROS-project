@@ -1,0 +1,74 @@
+import rclpy
+from rclpy.node import Node
+from sensor_msgs.msg import Image
+from cv_bridge import CvBridge
+import cv2
+from ultralytics import YOLO
+from smart_car_msgs.msg import BBox2D, BBox2DArray
+
+class YoloNode(Node):
+    def __init__(self):
+        super().__init__('yolo_node')
+
+        self.subscription = self.create_subscription(
+            Image,
+            '/camera/image_raw',
+            self.listener_callback,
+            10
+        )
+        
+        self.publisher = self.create_publisher(BBox2DArray, '/bbox', 10)
+        
+        self.bridge = CvBridge()
+        self.model = YOLO("/home/frankandyray/ros2_ws/src/smart_car/resource/best.pt")
+
+        self.get_logger().info("YOLOv8 model loaded, waiting for images...")
+
+    def listener_callback(self, msg):
+
+        frame = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+
+
+        results = self.model(frame)[0]
+
+
+        annotated_frame = results.plot()
+
+
+        cv2.imshow("YOLOv8 Detection", annotated_frame)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            cv2.destroyAllWindows()
+            rclpy.shutdown()
+        
+        bbox_array_msg = BBox2DArray()
+        bbox_array_msg.boxes = []
+        
+        for box in results.boxes:
+            cls_id = int(box.cls[0])  
+            label = self.model.names[cls_id] 
+            conf = float(box.conf[0])  
+            x1, y1, x2, y2 = map(int, box.xyxy[0])  
+
+            bbox_msg = BBox2D()
+            bbox_msg.x = x1
+            bbox_msg.y = y1
+            bbox_msg.width = x2 - x1
+            bbox_msg.height = y2 - y1
+            bbox_msg.label = label
+            bbox_msg.confidence = conf
+            
+            bbox_array_msg.boxes.append(bbox_msg)
+            self.get_logger().info(f"publish BBox：{label} ({conf:.2f})")
+            
+        self.publisher.publish(bbox_array_msg)
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = YoloNode()
+    rclpy.spin(node)
+    node.destroy_node()
+    rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()

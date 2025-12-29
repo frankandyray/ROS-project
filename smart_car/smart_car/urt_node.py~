@@ -1,0 +1,21 @@
+from smart_car_msgs.msg import BBox2D
+
+def main():
+    msg = BBox2D()
+    msg.x = 100
+    msg.y = 200
+    msg.width = 80
+    msg.height = 120
+    msg.label = "red-balloon"
+    msg.confidence = 0.95
+
+    print("✅ BBox2D message created successfully!")
+    print(f"x: {msg.x}")
+    print(f"y: {msg.y}")
+    print(f"width: {msg.width}")
+    print(f"height: {msg.height}")
+    print(f"label: {msg.label}")
+    print(f"confidence: {msg.confidence}")
+
+if __name__ == "__main__":
+    main()

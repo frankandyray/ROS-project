@@ -1,0 +1,61 @@
+import rclpy
+from rclpy.node import Node
+from smart_car_msgs.msg import BBox2D , BBox2DArray
+from std_msgs.msg import Int32
+
+class ZoneMapperNode(Node):
+    def __init__(self):
+        super().__init__('zone_mapper_node')
+        self.subscription = self.create_subscription(
+            BBox2DArray,
+            '/bbox',
+            self.bbox_callback,
+            10)
+
+        self.zone_publisher = self.create_publisher(Int32, '/person_zone', 10)
+        self.get_logger().info('ZoneMapperNode open：deal with balloon label')
+
+    def bbox_callback(self, msg):
+        
+        #yellow_boxes = [box for box in msg.boxes if box.label == "yellow_balloon"]
+        #if not yellow_boxes:
+            #return
+        
+        balloon_boxes = [box for box in msg.boxes if "balloon" in box.label]
+        
+        if not balloon_boxes:
+             return
+        
+        #yellow_boxes.sort(key=lambda b: -(b.width + b.height))
+        #selected_box = yellow_boxes[0]
+        
+        balloon_boxes.sort(key=lambda b: -(b.width + b.height))
+        selected_box = balloon_boxes[0] 
+
+        center_x = selected_box.x + selected_box.width // 2
+        zone = self.get_zone(center_x)
+
+        self.get_logger().info(f"detect person region：{zone}")
+
+        zone_msg = Int32()
+        zone_msg.data = zone
+        self.zone_publisher.publish(zone_msg)
+
+    def get_zone(self, x):
+        
+        if x < 213:
+            return 0  # 左邊
+        elif x < 426:
+            return 1  # 中間
+        else:
+            return 2  # 右邊
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = ZoneMapperNode()
+    rclpy.spin(node)
+    node.destroy_node()
+    rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
